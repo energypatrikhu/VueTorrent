@@ -29,14 +29,20 @@ This repository contains a custom Docker image for running qBittorrent with the 
 To build and run the Docker image:
 
 ```bash
-# Build the Docker image
+# Option 1: Build the Docker image locally
 docker build -t vuetorrent .
+
+# Option 2: Use the prebuilt image from Docker Hub
+docker pull energyhun24/vuetorrent
 
 # Run the Docker container
 docker run -d -p 8080:8080 vuetorrent
 ```
 
 The WebUI will be accessible at `http://localhost:8080` with the VueTorrent skin enabled.
+## Additional Information
+
+For more details about the base Docker image used in this project, visit the official [Docker Hub](https://hub.docker.com/r/qbittorrentofficial/qbittorrent-nox) page or check out its [GitHub repository](https://github.com/qbittorrent/docker-qbittorrent-nox).
 
 ## Notes
 
