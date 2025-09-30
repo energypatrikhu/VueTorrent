@@ -33,11 +33,12 @@ To build and run the Docker image:
 docker build -t vuetorrent .
 
 # Option 2: Use the prebuilt image from Docker Hub
-docker pull energyhun24/vuetorrent
-
-# Run the Docker container
-docker run -d -p 8080:8080 vuetorrent
+docker pull ghcr.io/energypatrikhu/vuetorrent:latest
 ```
+
+# Running the Container
+For more details on running the container, refer to the [qbittorrent-nox Docker image documentation](https://hub.docker.com/r/qbittorrentofficial/qbittorrent-nox).
+
 
 The WebUI will be accessible at `http://localhost:8080` with the VueTorrent skin enabled.
 ## Additional Information
