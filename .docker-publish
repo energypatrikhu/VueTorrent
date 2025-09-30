@@ -1,4 +1,4 @@
 {
-  "dockerImageName": "ghcr.io/energypatrikhu/vuetorrent",
-  "version": "1.0.0"
+	"dockerImageName": "ghcr.io/energypatrikhu/vuetorrent",
+	"version": "1.0.1"
 }
