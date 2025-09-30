@@ -15,10 +15,19 @@ get_current_version() {
     echo "0.0.0"
   fi
 }
+get_image_name() {
+  if [ -f .docker-publish ]; then
+    grep '"dockerImageName":' .docker-publish | sed -E 's/.*"([^"]+)".*/\1/'
+  else
+    echo "ghcr.io/energypatrikhu/vuetorrent"
+  fi
+}
 
+IMAGE_NAME=$(get_image_name)
 CURRENT_VERSION=$(get_current_version)
 LATEST_VERSION=$(get_latest_version)
 
+echo "Checking for updates for $REPO_PATH..."
 echo "Current version: $CURRENT_VERSION"
 echo "Latest version: $LATEST_VERSION"
 
@@ -28,18 +37,18 @@ if [ "$CURRENT_VERSION" != "$LATEST_VERSION" ]; then
   # Update .docker-publish file
   cat > .docker-publish <<EOL
 {
-  "dockerImageName": "ghcr.io/energypatrikhu/vuetorrent",
+  "dockerImageName": "$IMAGE_NAME",
   "version": "$LATEST_VERSION"
 }
 EOL
   echo ".docker-publish file updated to version $LATEST_VERSION"
 
   # Build and push Docker image
-  echo "Building and pushing Docker image ghcr.io/energypatrikhu/vuetorrent:$LATEST_VERSION"
-  docker build --no-cache -t ghcr.io/energypatrikhu/vuetorrent:$LATEST_VERSION -t ghcr.io/energypatrikhu/vuetorrent:latest .
-  docker push ghcr.io/energypatrikhu/vuetorrent:$LATEST_VERSION
-  docker push ghcr.io/energypatrikhu/vuetorrent:latest
-  echo "Docker image ghcr.io/energypatrikhu/vuetorrent:$LATEST_VERSION built and pushed."
+  echo "Building and pushing Docker image $IMAGE_NAME:$LATEST_VERSION"
+  docker build --no-cache -t $IMAGE_NAME:$LATEST_VERSION -t $IMAGE_NAME:latest .
+  docker push $IMAGE_NAME:$LATEST_VERSION
+  docker push $IMAGE_NAME:latest
+  echo "Docker image $IMAGE_NAME:$LATEST_VERSION built and pushed."
 
   # Commit and push changes to GitHub
   echo "Committing and pushing changes to GitHub."
