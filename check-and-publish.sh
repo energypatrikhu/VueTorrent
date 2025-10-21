@@ -35,6 +35,11 @@ LATEST_VUETORRENT_VERSION=$(get_latest_vuetorrent_version)
 LATEST_QBIT_VERSION=$(get_latest_qbittorrent_version)
 LATEST_VERSION="$LATEST_QBIT_VERSION"_"$LATEST_VUETORRENT_VERSION"
 
+if [ -z "$LATEST_VUETORRENT_VERSION" ] || [ -z "$LATEST_QBIT_VERSION" ]; then
+  echo "Error fetching latest versions. Exiting."
+  exit 1
+fi
+
 echo "[VueTorrent] Current version: $CURRENT_VUE_VERSION"
 echo "[VueTorrent] Latest version: $LATEST_VUETORRENT_VERSION"
 echo "[qBittorrent] Current version: $CURRENT_QBIT_VERSION"
