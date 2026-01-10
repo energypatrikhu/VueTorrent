@@ -1,4 +1,8 @@
 {
   "dockerImageName": "ghcr.io/energypatrikhu/vuetorrent",
-  "version": "5.1.4-lt2-2_2.31.2"
+  "vuetorrent": "2.31.2",
+  "versions": {
+    "lt2": "5.1.4-lt2-2",
+    "standard": "5.1.4-2"
+  }
 }
