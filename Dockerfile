@@ -1,3 +1,5 @@
+ARG QBIT_TAG=latest
+
 FROM alpine:latest AS downloader
 
 # Install dependencies
@@ -8,7 +10,7 @@ RUN curl -L -o /tmp/vuetorrent.zip https://github.com/VueTorrent/VueTorrent/rele
   unzip /tmp/vuetorrent.zip -d /tmp && \
   rm /tmp/vuetorrent.zip
 
-FROM qbittorrentofficial/qbittorrent-nox:latest
+FROM qbittorrentofficial/qbittorrent-nox:${QBIT_TAG}
 
 # Copy VueTorrent skin to the appropriate directory
 COPY --from=downloader /tmp/vuetorrent /vuetorrent
