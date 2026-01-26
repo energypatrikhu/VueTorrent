@@ -1,0 +1,164 @@
+name: Check and Publish Docker Images
+
+on:
+  schedule:
+    # Run every day at 2 AM UTC
+    - cron: "0 2 * * *"
+  workflow_dispatch: # Allow manual triggering
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/vuetorrent
+
+jobs:
+  check-and-build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get versions
+        id: versions
+        run: |
+          # Get latest VueTorrent version
+          LATEST_VUETORRENT=$(curl -s "https://api.github.com/repos/VueTorrent/VueTorrent/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
+          echo "latest_vuetorrent=$LATEST_VUETORRENT" >> $GITHUB_OUTPUT
+
+          # Get latest qBittorrent lt2 version
+          LATEST_QBIT_LT2=$(curl -s "https://hub.docker.com/v2/repositories/qbittorrentofficial/qbittorrent-nox/tags?page_size=100&ordering=last_updated" \
+            | jq -r '.results[].name' \
+            | grep -E '^[0-9]+\.[0-9]+\.[0-9]+-lt2-[0-9]+$' \
+            | grep -Ev 'latest|alpha|beta|rc' \
+            | head -n1)
+          echo "latest_qbit_lt2=$LATEST_QBIT_LT2" >> $GITHUB_OUTPUT
+
+          # Get latest qBittorrent standard version
+          LATEST_QBIT_STANDARD=$(curl -s "https://hub.docker.com/v2/repositories/qbittorrentofficial/qbittorrent-nox/tags?page_size=100&ordering=last_updated" \
+            | jq -r '.results[].name' \
+            | grep -E '^[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$' \
+            | grep -Ev 'lt2|latest|alpha|beta|rc' \
+            | head -n1)
+          echo "latest_qbit_standard=$LATEST_QBIT_STANDARD" >> $GITHUB_OUTPUT
+
+          # Get current versions from .docker-publish
+          if [ -f .docker-publish ]; then
+            CURRENT_VUETORRENT=$(jq -r '.vuetorrent // "0.0.0"' .docker-publish)
+            CURRENT_QBIT_LT2=$(jq -r '.versions.lt2 // "0.0.0"' .docker-publish)
+            CURRENT_QBIT_STANDARD=$(jq -r '.versions.standard // "0.0.0"' .docker-publish)
+          else
+            CURRENT_VUETORRENT="0.0.0"
+            CURRENT_QBIT_LT2="0.0.0"
+            CURRENT_QBIT_STANDARD="0.0.0"
+            echo '{"dockerImageName": "ghcr.io/${{ github.repository_owner }}/vuetorrent", "vuetorrent": "0.0.0", "versions": {"lt2": "0.0.0", "standard": "0.0.0"}}' > .docker-publish
+          fi
+
+          echo "current_vuetorrent=$CURRENT_VUETORRENT" >> $GITHUB_OUTPUT
+          echo "current_qbit_lt2=$CURRENT_QBIT_LT2" >> $GITHUB_OUTPUT
+          echo "current_qbit_standard=$CURRENT_QBIT_STANDARD" >> $GITHUB_OUTPUT
+
+          # Print versions
+          echo "VueTorrent: $CURRENT_VUETORRENT -> $LATEST_VUETORRENT"
+          echo "qBittorrent lt2: $CURRENT_QBIT_LT2 -> $LATEST_QBIT_LT2"
+          echo "qBittorrent standard: $CURRENT_QBIT_STANDARD -> $LATEST_QBIT_STANDARD"
+
+          # Determine what needs updating
+          VUETORRENT_UPDATED=false
+          LT2_NEEDS_UPDATE=false
+          STANDARD_NEEDS_UPDATE=false
+
+          if [ "$CURRENT_VUETORRENT" != "$LATEST_VUETORRENT" ]; then
+            VUETORRENT_UPDATED=true
+          fi
+
+          if [ "$CURRENT_QBIT_LT2" != "$LATEST_QBIT_LT2" ] || [ "$VUETORRENT_UPDATED" = "true" ]; then
+            LT2_NEEDS_UPDATE=true
+          fi
+
+          if [ "$CURRENT_QBIT_STANDARD" != "$LATEST_QBIT_STANDARD" ] || [ "$VUETORRENT_UPDATED" = "true" ]; then
+            STANDARD_NEEDS_UPDATE=true
+          fi
+
+          echo "vuetorrent_updated=$VUETORRENT_UPDATED" >> $GITHUB_OUTPUT
+          echo "lt2_needs_update=$LT2_NEEDS_UPDATE" >> $GITHUB_OUTPUT
+          echo "standard_needs_update=$STANDARD_NEEDS_UPDATE" >> $GITHUB_OUTPUT
+
+      - name: Build and push lt2 variant
+        if: steps.versions.outputs.lt2_needs_update == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          no-cache: true
+          build-args: |
+            QBIT_TAG=${{ steps.versions.outputs.latest_qbit_lt2 }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.versions.outputs.latest_qbit_lt2 }}_${{ steps.versions.outputs.latest_vuetorrent }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-lt2
+
+      - name: Build and push standard variant
+        if: steps.versions.outputs.standard_needs_update == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          no-cache: true
+          build-args: |
+            QBIT_TAG=${{ steps.versions.outputs.latest_qbit_standard }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.versions.outputs.latest_qbit_standard }}_${{ steps.versions.outputs.latest_vuetorrent }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+      - name: Update version file
+        if: steps.versions.outputs.lt2_needs_update == 'true' || steps.versions.outputs.standard_needs_update == 'true'
+        run: |
+          # Update .docker-publish with new versions
+          jq --arg vuetorrent "${{ steps.versions.outputs.latest_vuetorrent }}" \
+             --arg lt2 "${{ steps.versions.outputs.latest_qbit_lt2 }}" \
+             --arg standard "${{ steps.versions.outputs.latest_qbit_standard }}" \
+             '.vuetorrent = $vuetorrent | .versions.lt2 = $lt2 | .versions.standard = $standard' \
+             .docker-publish > .docker-publish.tmp
+          mv .docker-publish.tmp .docker-publish
+
+      - name: Commit and push changes
+        if: steps.versions.outputs.lt2_needs_update == 'true' || steps.versions.outputs.standard_needs_update == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add .docker-publish
+          git commit -m "Update versions: VueTorrent=${{ steps.versions.outputs.latest_vuetorrent }}, lt2=${{ steps.versions.outputs.latest_qbit_lt2 }}, standard=${{ steps.versions.outputs.latest_qbit_standard }}"
+          git push
+
+      - name: Summary
+        run: |
+          echo "## Version Check Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### VueTorrent" >> $GITHUB_STEP_SUMMARY
+          echo "- Current: ${{ steps.versions.outputs.current_vuetorrent }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Latest: ${{ steps.versions.outputs.latest_vuetorrent }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Updated: ${{ steps.versions.outputs.vuetorrent_updated }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### qBittorrent lt2" >> $GITHUB_STEP_SUMMARY
+          echo "- Current: ${{ steps.versions.outputs.current_qbit_lt2 }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Latest: ${{ steps.versions.outputs.latest_qbit_lt2 }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Rebuilt: ${{ steps.versions.outputs.lt2_needs_update }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### qBittorrent standard" >> $GITHUB_STEP_SUMMARY
+          echo "- Current: ${{ steps.versions.outputs.current_qbit_standard }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Latest: ${{ steps.versions.outputs.latest_qbit_standard }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Rebuilt: ${{ steps.versions.outputs.standard_needs_update }}" >> $GITHUB_STEP_SUMMARY
