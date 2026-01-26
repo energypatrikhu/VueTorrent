@@ -2,8 +2,7 @@ name: Check and Publish Docker Images
 
 on:
   schedule:
-    # Run every day at 2 AM UTC
-    - cron: "0 2 * * *"
+    - cron: '0 */6 * * *'  # Run every 6 hours
   workflow_dispatch: # Allow manual triggering
 
 env:
@@ -56,17 +55,22 @@ jobs:
             | head -n1)
           echo "latest_qbit_standard=$LATEST_QBIT_STANDARD" >> $GITHUB_OUTPUT
 
-          # Get current versions from .docker-publish
-          if [ -f .docker-publish ]; then
-            CURRENT_VUETORRENT=$(jq -r '.vuetorrent // "0.0.0"' .docker-publish)
-            CURRENT_QBIT_LT2=$(jq -r '.versions.lt2 // "0.0.0"' .docker-publish)
-            CURRENT_QBIT_STANDARD=$(jq -r '.versions.standard // "0.0.0"' .docker-publish)
-          else
-            CURRENT_VUETORRENT="0.0.0"
-            CURRENT_QBIT_LT2="0.0.0"
-            CURRENT_QBIT_STANDARD="0.0.0"
-            echo '{"dockerImageName": "ghcr.io/${{ github.repository_owner }}/vuetorrent", "vuetorrent": "0.0.0", "versions": {"lt2": "0.0.0", "standard": "0.0.0"}}' > .docker-publish
-          fi
+          # Fetch all tags
+          git fetch --tags
+
+          # Get current versions from git tags
+          VUETORRENT_TAG=$(git tag -l "vuetorrent-*" | sort -V | tail -n1)
+          QBIT_LT2_TAG=$(git tag -l "qbit-lt2-*" | sort -V | tail -n1)
+          QBIT_STANDARD_TAG=$(git tag -l "qbit-standard-*" | sort -V | tail -n1)
+
+          CURRENT_VUETORRENT="${VUETORRENT_TAG#vuetorrent-}"
+          CURRENT_QBIT_LT2=${QBIT_LT2_TAG#qbit-lt2-}
+          CURRENT_QBIT_STANDARD=${QBIT_STANDARD_TAG#qbit-standard-}
+
+          # Set defaults if no tags exist
+          CURRENT_VUETORRENT="${CURRENT_VUETORRENT:-0.0.0}"
+          CURRENT_QBIT_LT2="${CURRENT_QBIT_LT2:-0.0.0}"
+          CURRENT_QBIT_STANDARD="${CURRENT_QBIT_STANDARD:-0.0.0}"
 
           echo "current_vuetorrent=$CURRENT_VUETORRENT" >> $GITHUB_OUTPUT
           echo "current_qbit_lt2=$CURRENT_QBIT_LT2" >> $GITHUB_OUTPUT
@@ -124,25 +128,29 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.versions.outputs.latest_qbit_standard }}_${{ steps.versions.outputs.latest_vuetorrent }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
-      - name: Update version file
-        if: steps.versions.outputs.lt2_needs_update == 'true' || steps.versions.outputs.standard_needs_update == 'true'
-        run: |
-          # Update .docker-publish with new versions
-          jq --arg vuetorrent "${{ steps.versions.outputs.latest_vuetorrent }}" \
-             --arg lt2 "${{ steps.versions.outputs.latest_qbit_lt2 }}" \
-             --arg standard "${{ steps.versions.outputs.latest_qbit_standard }}" \
-             '.vuetorrent = $vuetorrent | .versions.lt2 = $lt2 | .versions.standard = $standard' \
-             .docker-publish > .docker-publish.tmp
-          mv .docker-publish.tmp .docker-publish
-
-      - name: Commit and push changes
+      - name: Create and push tags
         if: steps.versions.outputs.lt2_needs_update == 'true' || steps.versions.outputs.standard_needs_update == 'true'
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add .docker-publish
-          git commit -m "Update versions: VueTorrent=${{ steps.versions.outputs.latest_vuetorrent }}, lt2=${{ steps.versions.outputs.latest_qbit_lt2 }}, standard=${{ steps.versions.outputs.latest_qbit_standard }}"
-          git push
+
+          # Create VueTorrent tag if updated
+          if [ "${{ steps.versions.outputs.vuetorrent_updated }}" = "true" ]; then
+            git tag -a "vuetorrent-${{ steps.versions.outputs.latest_vuetorrent }}" -m "VueTorrent version ${{ steps.versions.outputs.latest_vuetorrent }}"
+          fi
+
+          # Create lt2 tag if updated
+          if [ "${{ steps.versions.outputs.lt2_needs_update }}" = "true" ]; then
+            git tag -a "qbit-lt2-${{ steps.versions.outputs.latest_qbit_lt2 }}" -m "qBittorrent ${{ steps.versions.outputs.latest_qbit_lt2 }} with VueTorrent ${{ steps.versions.outputs.latest_vuetorrent }} (lt2)"
+          fi
+
+          # Create standard tag if updated
+          if [ "${{ steps.versions.outputs.standard_needs_update }}" = "true" ]; then
+            git tag -a "qbit-standard-${{ steps.versions.outputs.latest_qbit_standard }}" -m "qBittorrent ${{ steps.versions.outputs.latest_qbit_standard }} with VueTorrent ${{ steps.versions.outputs.latest_vuetorrent }} (standard)"
+          fi
+
+          # Push all tags
+          git push origin --tags
 
       - name: Summary
         run: |
