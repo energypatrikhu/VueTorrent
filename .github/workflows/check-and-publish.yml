@@ -6,7 +6,7 @@ on:
   workflow_dispatch: # Allow manual triggering
 
 env:
-  REGISTRY: ghcr.io
+  REGISTRY: git.ep24.hu
   IMAGE_NAME: ${{ gitea.repository_owner }}/vuetorrent
 
 jobs:
