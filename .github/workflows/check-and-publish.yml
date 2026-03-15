@@ -2,12 +2,12 @@ name: Check and Publish Docker Images
 
 on:
   schedule:
-    - cron: '0 */6 * * *'  # Run every 6 hours
+    - cron: '0 0 * * *'  # Run every day
   workflow_dispatch: # Allow manual triggering
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/vuetorrent
+  IMAGE_NAME: ${{ gitea.repository_owner }}/vuetorrent
 
 jobs:
   check-and-build:
@@ -20,24 +20,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ github.token }}
+          token: ${{ secrets.GA_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to GitHub Container Registry
+      - name: Log in to Gitea Container Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
+          username: ${{ gitea.actor }}
+          password: ${{ secrets.GA_TOKEN }}
 
       - name: Get versions
         id: versions
         run: |
           # Get latest VueTorrent version
           LATEST_VUETORRENT=$(curl -s "https://api.github.com/repos/VueTorrent/VueTorrent/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
-          echo "latest_vuetorrent=$LATEST_VUETORRENT" >> $GITHUB_OUTPUT
+          echo "latest_vuetorrent=$LATEST_VUETORRENT" >> $GITEA_OUTPUT
 
           # Get latest qBittorrent lt2 version
           LATEST_QBIT_LT2=$(curl -s "https://hub.docker.com/v2/repositories/qbittorrentofficial/qbittorrent-nox/tags?page_size=100&ordering=last_updated" \
@@ -45,7 +45,7 @@ jobs:
             | grep -E '^[0-9]+\.[0-9]+\.[0-9]+-lt2-[0-9]+$' \
             | grep -Ev 'latest|alpha|beta|rc' \
             | head -n1)
-          echo "latest_qbit_lt2=$LATEST_QBIT_LT2" >> $GITHUB_OUTPUT
+          echo "latest_qbit_lt2=$LATEST_QBIT_LT2" >> $GITEA_OUTPUT
 
           # Get latest qBittorrent standard version
           LATEST_QBIT_STANDARD=$(curl -s "https://hub.docker.com/v2/repositories/qbittorrentofficial/qbittorrent-nox/tags?page_size=100&ordering=last_updated" \
@@ -53,7 +53,7 @@ jobs:
             | grep -E '^[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$' \
             | grep -Ev 'lt2|latest|alpha|beta|rc' \
             | head -n1)
-          echo "latest_qbit_standard=$LATEST_QBIT_STANDARD" >> $GITHUB_OUTPUT
+          echo "latest_qbit_standard=$LATEST_QBIT_STANDARD" >> $GITEA_OUTPUT
 
           # Fetch all tags
           git fetch --tags
@@ -72,9 +72,9 @@ jobs:
           CURRENT_QBIT_LT2="${CURRENT_QBIT_LT2:-0.0.0}"
           CURRENT_QBIT_STANDARD="${CURRENT_QBIT_STANDARD:-0.0.0}"
 
-          echo "current_vuetorrent=$CURRENT_VUETORRENT" >> $GITHUB_OUTPUT
-          echo "current_qbit_lt2=$CURRENT_QBIT_LT2" >> $GITHUB_OUTPUT
-          echo "current_qbit_standard=$CURRENT_QBIT_STANDARD" >> $GITHUB_OUTPUT
+          echo "current_vuetorrent=$CURRENT_VUETORRENT" >> $GITEA_OUTPUT
+          echo "current_qbit_lt2=$CURRENT_QBIT_LT2" >> $GITEA_OUTPUT
+          echo "current_qbit_standard=$CURRENT_QBIT_STANDARD" >> $GITEA_OUTPUT
 
           # Print versions
           echo "VueTorrent: $CURRENT_VUETORRENT -> $LATEST_VUETORRENT"
@@ -98,9 +98,9 @@ jobs:
             STANDARD_NEEDS_UPDATE=true
           fi
 
-          echo "vuetorrent_updated=$VUETORRENT_UPDATED" >> $GITHUB_OUTPUT
-          echo "lt2_needs_update=$LT2_NEEDS_UPDATE" >> $GITHUB_OUTPUT
-          echo "standard_needs_update=$STANDARD_NEEDS_UPDATE" >> $GITHUB_OUTPUT
+          echo "vuetorrent_updated=$VUETORRENT_UPDATED" >> $GITEA_OUTPUT
+          echo "lt2_needs_update=$LT2_NEEDS_UPDATE" >> $GITEA_OUTPUT
+          echo "standard_needs_update=$STANDARD_NEEDS_UPDATE" >> $GITEA_OUTPUT
 
       - name: Build and push lt2 variant
         if: steps.versions.outputs.lt2_needs_update == 'true'
@@ -131,8 +131,8 @@ jobs:
       - name: Create and push tags
         if: steps.versions.outputs.lt2_needs_update == 'true' || steps.versions.outputs.standard_needs_update == 'true'
         run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
+          git config --local user.email "gitea-actions[bot]@users.noreply.gitea.com"
+          git config --local user.name "gitea-actions[bot]"
 
           # Create VueTorrent tag if updated
           if [ "${{ steps.versions.outputs.vuetorrent_updated }}" = "true" ]; then
@@ -154,19 +154,19 @@ jobs:
 
       - name: Summary
         run: |
-          echo "## Version Check Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### VueTorrent" >> $GITHUB_STEP_SUMMARY
-          echo "- Current: ${{ steps.versions.outputs.current_vuetorrent }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Latest: ${{ steps.versions.outputs.latest_vuetorrent }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Updated: ${{ steps.versions.outputs.vuetorrent_updated }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### qBittorrent lt2" >> $GITHUB_STEP_SUMMARY
-          echo "- Current: ${{ steps.versions.outputs.current_qbit_lt2 }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Latest: ${{ steps.versions.outputs.latest_qbit_lt2 }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Rebuilt: ${{ steps.versions.outputs.lt2_needs_update }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### qBittorrent standard" >> $GITHUB_STEP_SUMMARY
-          echo "- Current: ${{ steps.versions.outputs.current_qbit_standard }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Latest: ${{ steps.versions.outputs.latest_qbit_standard }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Rebuilt: ${{ steps.versions.outputs.standard_needs_update }}" >> $GITHUB_STEP_SUMMARY
+          echo "## Version Check Summary" >> $GITEA_STEP_SUMMARY
+          echo "" >> $GITEA_STEP_SUMMARY
+          echo "### VueTorrent" >> $GITEA_STEP_SUMMARY
+          echo "- Current: ${{ steps.versions.outputs.current_vuetorrent }}" >> $GITEA_STEP_SUMMARY
+          echo "- Latest: ${{ steps.versions.outputs.latest_vuetorrent }}" >> $GITEA_STEP_SUMMARY
+          echo "- Updated: ${{ steps.versions.outputs.vuetorrent_updated }}" >> $GITEA_STEP_SUMMARY
+          echo "" >> $GITEA_STEP_SUMMARY
+          echo "### qBittorrent lt2" >> $GITEA_STEP_SUMMARY
+          echo "- Current: ${{ steps.versions.outputs.current_qbit_lt2 }}" >> $GITEA_STEP_SUMMARY
+          echo "- Latest: ${{ steps.versions.outputs.latest_qbit_lt2 }}" >> $GITEA_STEP_SUMMARY
+          echo "- Rebuilt: ${{ steps.versions.outputs.lt2_needs_update }}" >> $GITEA_STEP_SUMMARY
+          echo "" >> $GITEA_STEP_SUMMARY
+          echo "### qBittorrent standard" >> $GITEA_STEP_SUMMARY
+          echo "- Current: ${{ steps.versions.outputs.current_qbit_standard }}" >> $GITEA_STEP_SUMMARY
+          echo "- Latest: ${{ steps.versions.outputs.latest_qbit_standard }}" >> $GITEA_STEP_SUMMARY
+          echo "- Rebuilt: ${{ steps.versions.outputs.standard_needs_update }}" >> $GITEA_STEP_SUMMARY
