@@ -27,7 +27,7 @@ jobs:
       - name: Log in to Gitea Container Registry
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.PRIVATE_REGISTRY }}
+          registry: ${{ vars.PRIVATE_REGISTRY }}
           username: ${{ gitea.actor }}
           password: ${{ secrets.TOKEN }}
 
@@ -105,8 +105,8 @@ jobs:
           build-args: |
             QBIT_TAG=${{ steps.versions.outputs.latest_qbit_lt2 }}
           tags: |
-            ${{ env.PRIVATE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.versions.outputs.latest_qbit_lt2 }}_${{ steps.versions.outputs.latest_vuetorrent }}
-            ${{ env.PRIVATE_REGISTRY }}/${{ env.IMAGE_NAME }}:latest-lt2
+            ${{ vars.PRIVATE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.versions.outputs.latest_qbit_lt2 }}_${{ steps.versions.outputs.latest_vuetorrent }}
+            ${{ vars.PRIVATE_REGISTRY }}/${{ env.IMAGE_NAME }}:latest-lt2
 
       - name: Build and push standard variant
         if: steps.check.outputs.standard_needs_update == 'true'
@@ -118,8 +118,8 @@ jobs:
           build-args: |
             QBIT_TAG=${{ steps.versions.outputs.latest_qbit_standard }}
           tags: |
-            ${{ env.PRIVATE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.versions.outputs.latest_qbit_standard }}_${{ steps.versions.outputs.latest_vuetorrent }}
-            ${{ env.PRIVATE_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ vars.PRIVATE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.versions.outputs.latest_qbit_standard }}_${{ steps.versions.outputs.latest_vuetorrent }}
+            ${{ vars.PRIVATE_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
       - name: Create and push tags
         if: steps.check.outputs.lt2_needs_update == 'true' || steps.check.outputs.standard_needs_update == 'true'
