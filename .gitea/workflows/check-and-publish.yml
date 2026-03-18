@@ -6,7 +6,6 @@ on:
   workflow_dispatch: # Allow manual triggering
 
 env:
-  REGISTRY: gitea.ep24.hu
   IMAGE_NAME: ${{ gitea.repository_owner }}/vuetorrent
 
 jobs:
@@ -20,7 +19,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GA_TOKEN }}
+          fetch-depth: 0 # Fetch all tags
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -28,9 +27,9 @@ jobs:
       - name: Log in to Gitea Container Registry
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ${{ env.PRIVATE_REGISTRY }}
           username: ${{ gitea.actor }}
-          password: ${{ secrets.GA_TOKEN }}
+          password: ${{ secrets.TOKEN }}
 
       - name: Get versions
         id: versions
@@ -55,9 +54,6 @@ jobs:
             | head -n1)
           echo "latest_qbit_standard=$LATEST_QBIT_STANDARD" >> $GITEA_OUTPUT
 
-          # Fetch all tags
-          git fetch --tags
-
           # Get current versions from git tags
           VUETORRENT_TAG=$(git tag -l "vuetorrent-*" | sort -V | tail -n1)
           QBIT_LT2_TAG=$(git tag -l "qbit-lt2-*" | sort -V | tail -n1)
@@ -72,38 +68,35 @@ jobs:
           CURRENT_QBIT_LT2="${CURRENT_QBIT_LT2:-0.0.0}"
           CURRENT_QBIT_STANDARD="${CURRENT_QBIT_STANDARD:-0.0.0}"
 
-          echo "current_vuetorrent=$CURRENT_VUETORRENT" >> $GITEA_OUTPUT
-          echo "current_qbit_lt2=$CURRENT_QBIT_LT2" >> $GITEA_OUTPUT
-          echo "current_qbit_standard=$CURRENT_QBIT_STANDARD" >> $GITEA_OUTPUT
+          echo "current_vuetorrent=${CURRENT_VUETORRENT}" >> $GITEA_OUTPUT
+          echo "current_qbit_lt2=${CURRENT_QBIT_LT2}" >> $GITEA_OUTPUT
+          echo "current_qbit_standard=${CURRENT_QBIT_STANDARD}" >> $GITEA_OUTPUT
 
-          # Print versions
-          echo "VueTorrent: $CURRENT_VUETORRENT -> $LATEST_VUETORRENT"
-          echo "qBittorrent lt2: $CURRENT_QBIT_LT2 -> $LATEST_QBIT_LT2"
-          echo "qBittorrent standard: $CURRENT_QBIT_STANDARD -> $LATEST_QBIT_STANDARD"
-
-          # Determine what needs updating
+      - name: Check if update needed
+        id: check
+        run: |
           VUETORRENT_UPDATED=false
           LT2_NEEDS_UPDATE=false
           STANDARD_NEEDS_UPDATE=false
 
-          if [ "$CURRENT_VUETORRENT" != "$LATEST_VUETORRENT" ]; then
+          if [ "${{ steps.versions.outputs.current_vuetorrent }}" != "${{ steps.versions.outputs.latest_vuetorrent }}" ]; then
             VUETORRENT_UPDATED=true
           fi
 
-          if [ "$CURRENT_QBIT_LT2" != "$LATEST_QBIT_LT2" ] || [ "$VUETORRENT_UPDATED" = "true" ]; then
+          if [ "${{ steps.versions.outputs.current_qbit_lt2 }}" != "${{ steps.versions.outputs.latest_qbit_lt2 }}" ] || [ "${VUETORRENT_UPDATED}" = "true" ]; then
             LT2_NEEDS_UPDATE=true
           fi
 
-          if [ "$CURRENT_QBIT_STANDARD" != "$LATEST_QBIT_STANDARD" ] || [ "$VUETORRENT_UPDATED" = "true" ]; then
+          if [ "${{ steps.versions.outputs.current_qbit_standard }}" != "${{ steps.versions.outputs.latest_qbit_standard }}" ] || [ "${VUETORRENT_UPDATED}" = "true" ]; then
             STANDARD_NEEDS_UPDATE=true
           fi
 
-          echo "vuetorrent_updated=$VUETORRENT_UPDATED" >> $GITEA_OUTPUT
-          echo "lt2_needs_update=$LT2_NEEDS_UPDATE" >> $GITEA_OUTPUT
-          echo "standard_needs_update=$STANDARD_NEEDS_UPDATE" >> $GITEA_OUTPUT
+          echo "vuetorrent_updated=${VUETORRENT_UPDATED}" >> $GITEA_OUTPUT
+          echo "lt2_needs_update=${LT2_NEEDS_UPDATE}" >> $GITEA_OUTPUT
+          echo "standard_needs_update=${STANDARD_NEEDS_UPDATE}" >> $GITEA_OUTPUT
 
       - name: Build and push lt2 variant
-        if: steps.versions.outputs.lt2_needs_update == 'true'
+        if: steps.check.outputs.lt2_needs_update == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -112,11 +105,11 @@ jobs:
           build-args: |
             QBIT_TAG=${{ steps.versions.outputs.latest_qbit_lt2 }}
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.versions.outputs.latest_qbit_lt2 }}_${{ steps.versions.outputs.latest_vuetorrent }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-lt2
+            ${{ env.PRIVATE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.versions.outputs.latest_qbit_lt2 }}_${{ steps.versions.outputs.latest_vuetorrent }}
+            ${{ env.PRIVATE_REGISTRY }}/${{ env.IMAGE_NAME }}:latest-lt2
 
       - name: Build and push standard variant
-        if: steps.versions.outputs.standard_needs_update == 'true'
+        if: steps.check.outputs.standard_needs_update == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -125,48 +118,29 @@ jobs:
           build-args: |
             QBIT_TAG=${{ steps.versions.outputs.latest_qbit_standard }}
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.versions.outputs.latest_qbit_standard }}_${{ steps.versions.outputs.latest_vuetorrent }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.PRIVATE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.versions.outputs.latest_qbit_standard }}_${{ steps.versions.outputs.latest_vuetorrent }}
+            ${{ env.PRIVATE_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
       - name: Create and push tags
-        if: steps.versions.outputs.lt2_needs_update == 'true' || steps.versions.outputs.standard_needs_update == 'true'
+        if: steps.check.outputs.lt2_needs_update == 'true' || steps.check.outputs.standard_needs_update == 'true'
         run: |
           git config --local user.email "gitea-actions[bot]@users.noreply.gitea.com"
           git config --local user.name "gitea-actions[bot]"
 
           # Create VueTorrent tag if updated
-          if [ "${{ steps.versions.outputs.vuetorrent_updated }}" = "true" ]; then
+          if [ "${{ steps.check.outputs.vuetorrent_updated }}" = "true" ]; then
             git tag -a "vuetorrent-${{ steps.versions.outputs.latest_vuetorrent }}" -m "VueTorrent version ${{ steps.versions.outputs.latest_vuetorrent }}"
           fi
 
           # Create lt2 tag if updated
-          if [ "${{ steps.versions.outputs.lt2_needs_update }}" = "true" ]; then
+          if [ "${{ steps.check.outputs.lt2_needs_update }}" = "true" ]; then
             git tag -a "qbit-lt2-${{ steps.versions.outputs.latest_qbit_lt2 }}" -m "qBittorrent ${{ steps.versions.outputs.latest_qbit_lt2 }} with VueTorrent ${{ steps.versions.outputs.latest_vuetorrent }} (lt2)"
           fi
 
           # Create standard tag if updated
-          if [ "${{ steps.versions.outputs.standard_needs_update }}" = "true" ]; then
+          if [ "${{ steps.check.outputs.standard_needs_update }}" = "true" ]; then
             git tag -a "qbit-standard-${{ steps.versions.outputs.latest_qbit_standard }}" -m "qBittorrent ${{ steps.versions.outputs.latest_qbit_standard }} with VueTorrent ${{ steps.versions.outputs.latest_vuetorrent }} (standard)"
           fi
 
           # Push all tags
           git push origin --tags
-
-      - name: Summary
-        run: |
-          echo "## Version Check Summary" >> $GITEA_STEP_SUMMARY
-          echo "" >> $GITEA_STEP_SUMMARY
-          echo "### VueTorrent" >> $GITEA_STEP_SUMMARY
-          echo "- Current: ${{ steps.versions.outputs.current_vuetorrent }}" >> $GITEA_STEP_SUMMARY
-          echo "- Latest: ${{ steps.versions.outputs.latest_vuetorrent }}" >> $GITEA_STEP_SUMMARY
-          echo "- Updated: ${{ steps.versions.outputs.vuetorrent_updated }}" >> $GITEA_STEP_SUMMARY
-          echo "" >> $GITEA_STEP_SUMMARY
-          echo "### qBittorrent lt2" >> $GITEA_STEP_SUMMARY
-          echo "- Current: ${{ steps.versions.outputs.current_qbit_lt2 }}" >> $GITEA_STEP_SUMMARY
-          echo "- Latest: ${{ steps.versions.outputs.latest_qbit_lt2 }}" >> $GITEA_STEP_SUMMARY
-          echo "- Rebuilt: ${{ steps.versions.outputs.lt2_needs_update }}" >> $GITEA_STEP_SUMMARY
-          echo "" >> $GITEA_STEP_SUMMARY
-          echo "### qBittorrent standard" >> $GITEA_STEP_SUMMARY
-          echo "- Current: ${{ steps.versions.outputs.current_qbit_standard }}" >> $GITEA_STEP_SUMMARY
-          echo "- Latest: ${{ steps.versions.outputs.latest_qbit_standard }}" >> $GITEA_STEP_SUMMARY
-          echo "- Rebuilt: ${{ steps.versions.outputs.standard_needs_update }}" >> $GITEA_STEP_SUMMARY
