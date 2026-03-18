@@ -72,6 +72,10 @@ jobs:
           echo "current_qbit_lt2=${CURRENT_QBIT_LT2}" >> $GITEA_OUTPUT
           echo "current_qbit_standard=${CURRENT_QBIT_STANDARD}" >> $GITEA_OUTPUT
 
+          echo "VueTorrent: ${CURRENT_VUETORRENT} -> ${LATEST_VUETORRENT}"
+          echo "QBit lt2: ${CURRENT_QBIT_LT2} -> ${LATEST_QBIT_LT2}"
+          echo "QBit standard: ${CURRENT_QBIT_STANDARD} -> ${LATEST_QBIT_STANDARD}"
+
       - name: Check if update needed
         id: check
         run: |
@@ -81,14 +85,23 @@ jobs:
 
           if [ "${{ steps.versions.outputs.current_vuetorrent }}" != "${{ steps.versions.outputs.latest_vuetorrent }}" ]; then
             VUETORRENT_UPDATED=true
+            echo "VueTorrent needs to be updated"
+          else
+            echo "VueTorrent is up to date"
           fi
 
           if [ "${{ steps.versions.outputs.current_qbit_lt2 }}" != "${{ steps.versions.outputs.latest_qbit_lt2 }}" ] || [ "${VUETORRENT_UPDATED}" = "true" ]; then
             LT2_NEEDS_UPDATE=true
+            echo "QBit lt2 needs to be updated"
+          else
+            echo "QBit lt2 is up to date"
           fi
 
           if [ "${{ steps.versions.outputs.current_qbit_standard }}" != "${{ steps.versions.outputs.latest_qbit_standard }}" ] || [ "${VUETORRENT_UPDATED}" = "true" ]; then
             STANDARD_NEEDS_UPDATE=true
+            echo "QBit standard needs to be updated"
+          else
+            echo "QBit standard is up to date"
           fi
 
           echo "vuetorrent_updated=${VUETORRENT_UPDATED}" >> $GITEA_OUTPUT
