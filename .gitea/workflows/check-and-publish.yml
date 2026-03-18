@@ -2,11 +2,11 @@ name: Check and Publish Docker Images
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Run every day
+    - cron: "0 0 * * *" # Run every day
   workflow_dispatch: # Allow manual triggering
 
 env:
-  REGISTRY: git.ep24.hu
+  REGISTRY: gitea.ep24.hu
   IMAGE_NAME: ${{ gitea.repository_owner }}/vuetorrent
 
 jobs:
