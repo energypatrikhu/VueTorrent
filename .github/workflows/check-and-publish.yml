@@ -119,8 +119,8 @@ jobs:
           build-args: |
             QBIT_TAG=${{ steps.versions.outputs.latest_qbit_lt2 }}
           tags: |
-            ${{ vars.PRIVATE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.versions.outputs.latest_qbit_lt2 }}_${{ steps.versions.outputs.latest_vuetorrent }}
-            ${{ vars.PRIVATE_REGISTRY }}/${{ env.IMAGE_NAME }}:latest-lt2
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.versions.outputs.latest_qbit_lt2 }}_${{ steps.versions.outputs.latest_vuetorrent }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-lt2
 
       - name: Build and push standard variant
         if: steps.check.outputs.standard_needs_update == 'true'
@@ -132,8 +132,8 @@ jobs:
           build-args: |
             QBIT_TAG=${{ steps.versions.outputs.latest_qbit_standard }}
           tags: |
-            ${{ vars.PRIVATE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.versions.outputs.latest_qbit_standard }}_${{ steps.versions.outputs.latest_vuetorrent }}
-            ${{ vars.PRIVATE_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.versions.outputs.latest_qbit_standard }}_${{ steps.versions.outputs.latest_vuetorrent }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
       - name: Create and push tags
         if: steps.check.outputs.lt2_needs_update == 'true' || steps.check.outputs.standard_needs_update == 'true'
