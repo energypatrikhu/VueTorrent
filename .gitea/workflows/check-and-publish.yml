@@ -6,7 +6,8 @@ on:
   workflow_dispatch: # Allow manual triggering
 
 env:
-  IMAGE_NAME: ${{ gitea.repository_owner }}/vuetorrent
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/vuetorrent
 
 jobs:
   check-and-build:
@@ -24,19 +25,19 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to Gitea Container Registry
+      - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          registry: ${{ vars.PRIVATE_REGISTRY }}
-          username: ${{ gitea.actor }}
-          password: ${{ secrets.TOKEN }}
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
 
       - name: Get versions
         id: versions
         run: |
           # Get latest VueTorrent version
           LATEST_VUETORRENT=$(curl -s "https://api.github.com/repos/VueTorrent/VueTorrent/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
-          echo "latest_vuetorrent=$LATEST_VUETORRENT" >> $GITEA_OUTPUT
+          echo "latest_vuetorrent=$LATEST_VUETORRENT" >> $GITHUB_OUTPUT
 
           # Get latest qBittorrent lt2 version
           LATEST_QBIT_LT2=$(curl -s "https://hub.docker.com/v2/repositories/qbittorrentofficial/qbittorrent-nox/tags?page_size=100&ordering=last_updated" \
@@ -44,7 +45,7 @@ jobs:
             | grep -E '^[0-9]+\.[0-9]+\.[0-9]+-lt2-[0-9]+$' \
             | grep -Ev 'latest|alpha|beta|rc' \
             | head -n1)
-          echo "latest_qbit_lt2=$LATEST_QBIT_LT2" >> $GITEA_OUTPUT
+          echo "latest_qbit_lt2=$LATEST_QBIT_LT2" >> $GITHUB_OUTPUT
 
           # Get latest qBittorrent standard version
           LATEST_QBIT_STANDARD=$(curl -s "https://hub.docker.com/v2/repositories/qbittorrentofficial/qbittorrent-nox/tags?page_size=100&ordering=last_updated" \
@@ -137,8 +138,8 @@ jobs:
       - name: Create and push tags
         if: steps.check.outputs.lt2_needs_update == 'true' || steps.check.outputs.standard_needs_update == 'true'
         run: |
-          git config --local user.email "gitea-actions[bot]@users.noreply.gitea.com"
-          git config --local user.name "gitea-actions[bot]"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
 
           # Create VueTorrent tag if updated
           if [ "${{ steps.check.outputs.vuetorrent_updated }}" = "true" ]; then
