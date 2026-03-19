@@ -53,7 +53,7 @@ jobs:
             | grep -E '^[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$' \
             | grep -Ev 'lt2|latest|alpha|beta|rc' \
             | head -n1)
-          echo "latest_qbit_standard=$LATEST_QBIT_STANDARD" >> $GITEA_OUTPUT
+          echo "latest_qbit_standard=$LATEST_QBIT_STANDARD" >> $GITHUB_OUTPUT
 
           # Get current versions from git tags
           VUETORRENT_TAG=$(git tag -l "vuetorrent-*" | sort -V | tail -n1)
@@ -69,9 +69,9 @@ jobs:
           CURRENT_QBIT_LT2="${CURRENT_QBIT_LT2:-0.0.0}"
           CURRENT_QBIT_STANDARD="${CURRENT_QBIT_STANDARD:-0.0.0}"
 
-          echo "current_vuetorrent=${CURRENT_VUETORRENT}" >> $GITEA_OUTPUT
-          echo "current_qbit_lt2=${CURRENT_QBIT_LT2}" >> $GITEA_OUTPUT
-          echo "current_qbit_standard=${CURRENT_QBIT_STANDARD}" >> $GITEA_OUTPUT
+          echo "current_vuetorrent=${CURRENT_VUETORRENT}" >> $GITHUB_OUTPUT
+          echo "current_qbit_lt2=${CURRENT_QBIT_LT2}" >> $GITHUB_OUTPUT
+          echo "current_qbit_standard=${CURRENT_QBIT_STANDARD}" >> $GITHUB_OUTPUT
 
           echo "VueTorrent: ${CURRENT_VUETORRENT} -> ${LATEST_VUETORRENT}"
           echo "QBit lt2: ${CURRENT_QBIT_LT2} -> ${LATEST_QBIT_LT2}"
@@ -105,9 +105,9 @@ jobs:
             echo "QBit standard is up to date"
           fi
 
-          echo "vuetorrent_updated=${VUETORRENT_UPDATED}" >> $GITEA_OUTPUT
-          echo "lt2_needs_update=${LT2_NEEDS_UPDATE}" >> $GITEA_OUTPUT
-          echo "standard_needs_update=${STANDARD_NEEDS_UPDATE}" >> $GITEA_OUTPUT
+          echo "vuetorrent_updated=${VUETORRENT_UPDATED}" >> $GITHUB_OUTPUT
+          echo "lt2_needs_update=${LT2_NEEDS_UPDATE}" >> $GITHUB_OUTPUT
+          echo "standard_needs_update=${STANDARD_NEEDS_UPDATE}" >> $GITHUB_OUTPUT
 
       - name: Build and push lt2 variant
         if: steps.check.outputs.lt2_needs_update == 'true'
