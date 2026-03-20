@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0 # Fetch all tags
 
@@ -115,7 +115,7 @@ jobs:
 
       - name: Build and push lt2 variant
         if: steps.check.outputs.lt2_needs_update == 'true'
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           platforms: linux/amd64,linux/386,linux/arm64,linux/arm/v7,linux/arm/v6,linux/riscv64
           push: ${{ github.event_name != 'pull_request' }}
@@ -130,7 +130,7 @@ jobs:
 
       - name: Build and push standard variant
         if: steps.check.outputs.standard_needs_update == 'true'
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           platforms: linux/amd64,linux/386,linux/arm64,linux/arm/v7,linux/arm/v6,linux/riscv64
           push: ${{ github.event_name != 'pull_request' }}
