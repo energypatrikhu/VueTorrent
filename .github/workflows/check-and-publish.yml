@@ -125,6 +125,8 @@ jobs:
             ${{ env.IMAGE_NAME }}:${{ steps.versions.outputs.latest_qbit_lt2 }}_${{ steps.versions.outputs.latest_vuetorrent }}
             ${{ env.IMAGE_NAME }}:latest-lt2
           annotations: ${{ steps.meta.outputs.annotations }}
+          provenance: true
+          sbom: true
 
       - name: Build and push standard variant
         if: steps.check.outputs.standard_needs_update == 'true'
@@ -138,6 +140,8 @@ jobs:
             ${{ env.IMAGE_NAME }}:${{ steps.versions.outputs.latest_qbit_standard }}_${{ steps.versions.outputs.latest_vuetorrent }}
             ${{ env.IMAGE_NAME }}:latest
           annotations: ${{ steps.meta.outputs.annotations }}
+          provenance: true
+          sbom: true
 
       - name: Create and push tags
         if: steps.check.outputs.lt2_needs_update == 'true' || steps.check.outputs.standard_needs_update == 'true'
