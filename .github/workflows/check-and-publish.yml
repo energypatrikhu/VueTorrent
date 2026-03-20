@@ -6,8 +6,7 @@ on:
   workflow_dispatch: # Allow manual triggering
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/vuetorrent
+  IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/vuetorrent
 
 jobs:
   check-and-build:
@@ -23,14 +22,19 @@ jobs:
           fetch-depth: 0 # Fetch all tags
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/setup-buildx-action@v4
+        
+      - name: Extract Docker image metadata
+        id: meta
+        uses: docker/metadata-action@v6
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
+          images: ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Get versions
         id: versions
@@ -113,27 +117,27 @@ jobs:
         if: steps.check.outputs.lt2_needs_update == 'true'
         uses: docker/build-push-action@v5
         with:
-          context: .
-          push: true
-          no-cache: true
+          platforms: linux/amd64,linux/386,linux/arm64,linux/arm/v7,linux/arm/v6,linux/riscv64
+          push: ${{ github.event_name != 'pull_request' }}
           build-args: |
             QBIT_TAG=${{ steps.versions.outputs.latest_qbit_lt2 }}
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.versions.outputs.latest_qbit_lt2 }}_${{ steps.versions.outputs.latest_vuetorrent }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-lt2
+            ${{ env.IMAGE_NAME }}:${{ steps.versions.outputs.latest_qbit_lt2 }}_${{ steps.versions.outputs.latest_vuetorrent }}
+            ${{ env.IMAGE_NAME }}:latest-lt2
+          annotations: ${{ steps.meta.outputs.annotations }}
 
       - name: Build and push standard variant
         if: steps.check.outputs.standard_needs_update == 'true'
         uses: docker/build-push-action@v5
         with:
-          context: .
-          push: true
-          no-cache: true
+          platforms: linux/amd64,linux/386,linux/arm64,linux/arm/v7,linux/arm/v6,linux/riscv64
+          push: ${{ github.event_name != 'pull_request' }}
           build-args: |
             QBIT_TAG=${{ steps.versions.outputs.latest_qbit_standard }}
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.versions.outputs.latest_qbit_standard }}_${{ steps.versions.outputs.latest_vuetorrent }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ steps.versions.outputs.latest_qbit_standard }}_${{ steps.versions.outputs.latest_vuetorrent }}
+            ${{ env.IMAGE_NAME }}:latest
+          annotations: ${{ steps.meta.outputs.annotations }}
 
       - name: Create and push tags
         if: steps.check.outputs.lt2_needs_update == 'true' || steps.check.outputs.standard_needs_update == 'true'
