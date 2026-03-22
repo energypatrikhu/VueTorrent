@@ -2,7 +2,7 @@ name: Check and Publish Docker Images
 
 on:
   schedule:
-    - cron: "0 0 * * *" # Run every day
+    - cron: "0 0 */3 * *" # Run every 3rd day
   workflow_dispatch: # Allow manual triggering
 
 env:
