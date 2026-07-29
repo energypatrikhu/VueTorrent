@@ -1,9 +1,12 @@
 ARG QBIT_TAG=latest
 
-FROM alpine:latest AS downloader
+FROM debian:slim AS downloader
 
 # Install dependencies
-RUN apk add --no-cache curl unzip
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  curl \
+  unzip \
+  && rm -rf /var/lib/apt/lists/*
 
 # Download VueTorrent
 RUN curl -L -o /tmp/vuetorrent.zip https://github.com/VueTorrent/VueTorrent/releases/latest/download/vuetorrent.zip && \
