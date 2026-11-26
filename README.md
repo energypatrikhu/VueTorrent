@@ -21,7 +21,7 @@ To build and run the Docker image:
 docker build -t vuetorrent .
 
 # Option 2: Use the prebuilt image from Docker Hub
-docker pull ghcr.io/energypatrikhu/vuetorrent:latest
+docker pull docker.io/energypatrikhu/vuetorrent:latest
 ```
 
 # Running the Container
