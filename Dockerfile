@@ -1,6 +1,6 @@
 ARG QBIT_TAG=latest
 
-FROM debian:slim AS downloader
+FROM debian:stable-slim AS downloader
 
 # Install dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
