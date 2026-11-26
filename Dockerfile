@@ -1,22 +1,11 @@
 ARG QBIT_TAG=latest
 
-FROM debian:stable-slim AS downloader
-
-# Install dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-  curl \
-  unzip \
-  && rm -rf /var/lib/apt/lists/*
-
-# Download VueTorrent
-RUN curl -L -o /tmp/vuetorrent.zip https://github.com/VueTorrent/VueTorrent/releases/latest/download/vuetorrent.zip && \
-  unzip /tmp/vuetorrent.zip -d /tmp && \
-  rm /tmp/vuetorrent.zip
-
 FROM qbittorrentofficial/qbittorrent-nox:${QBIT_TAG}
 
-# Copy VueTorrent skin to the appropriate directory
-COPY --from=downloader /tmp/vuetorrent /vuetorrent
+# Download VueTorrent and extract to root
+RUN curl -L -o /tmp/vuetorrent.zip https://github.com/VueTorrent/VueTorrent/releases/latest/download/vuetorrent.zip && \
+  unzip /tmp/vuetorrent.zip -d / && \
+  rm -rfv /tmp/vuetorrent.zip
 
 # Patch entrypoint.sh to set the Preferences section
 RUN sed -i $'s|\\[BitTorrent\\]|[Preferences]\\nWebUI\\\\AlternativeUIEnabled=true\\nWebUI\\\\RootFolder=/vuetorrent\\n\\n[BitTorrent]|' /entrypoint.sh
